@@ -1,0 +1,8 @@
+{
+  "timezone": "Europe/Bucharest",
+  "sendTimes": ["11:00", "15:00"],
+  "weekdaysOnly": true,
+  "tickers": ["VWCE.DE", "AVWS.DE", "VGLA.DE"],
+  "priceDecimals": 2,
+  "title": "ETF prices"
+}

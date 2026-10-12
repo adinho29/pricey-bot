@@ -1,0 +1,24 @@
+{
+  "name": "stock-discord-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Posts ETF/stock prices into a Discord channel at scheduled times via an incoming webhook",
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "send": "node --env-file-if-exists=.env dist/main.js",
+    "dry-run": "node --env-file-if-exists=.env dist/main.js --dry-run"
+  },
+  "dependencies": {
+    "yahoo-finance2": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
+  }
+}
