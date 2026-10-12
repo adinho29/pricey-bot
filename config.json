@@ -1,6 +1,6 @@
 {
   "timezone": "Europe/Bucharest",
-  "sendTimes": ["11:00", "15:00"],
+  "sendTimes": ["11:00", "15:00", "19:30"],
   "weekdaysOnly": true,
   "tickers": ["VWCE.DE", "AVWS.DE", "VGLA.DE"],
   "priceDecimals": 2,

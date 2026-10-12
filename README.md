@@ -1,4 +1,4 @@
-# stock-discord-bot
+# pricey-bot
 
 Posts the current price of your ETFs/stocks into a Discord channel at fixed times on
 weekdays. Runs for free on GitHub Actions, reads prices from Yahoo Finance and posts
@@ -44,8 +44,8 @@ Treat that URL like a password: anyone holding it can post to the channel.
 ### 2. Check the message locally
 
 ```bash
-git clone <this repo>
-cd stock-discord-bot
+git clone https://github.com/adinho29/pricey-bot.git
+cd pricey-bot
 npm install
 cp .env.example .env        # paste the webhook URL into .env
 npm run build

@@ -1,5 +1,5 @@
 {
-  "name": "stock-discord-bot",
+  "name": "pricey-bot",
   "version": "1.0.0",
   "private": true,
   "description": "Posts ETF/stock prices into a Discord channel at scheduled times via an incoming webhook",
