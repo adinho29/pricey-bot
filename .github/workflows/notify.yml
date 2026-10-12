@@ -1,0 +1,52 @@
+name: notify
+
+on:
+  schedule:
+    # Hourly at :07, every day, 05:00-16:00 UTC.
+    # The script decides whether the current Bucharest time matches a configured
+    # send time and whether weekends are allowed (see config.json), so neither
+    # daylight-saving changes nor weekdaysOnly need edits here.
+    - cron: "7 5-16 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Send now, ignoring the schedule"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: write # required by the keepalive step
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Send prices
+        run: node dist/main.js ${{ inputs.force == true && '--force' || '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Keep the schedule enabled
+        # GitHub disables scheduled workflows after 60 days without repository
+        # activity. Re-enabling the workflow on every run resets that timer.
+        if: always()
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/notify.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
