@@ -112,3 +112,20 @@ describe("loadCredentials", () => {
     });
   });
 });
+
+describe("loadCredentials URL normalisation", () => {
+  const base = "https://discord.com/api/webhooks/123456789/abcDEFtoken_XYZ";
+
+  it("strips a trailing slash, which Discord would otherwise reject with a 404", () => {
+    expect(loadCredentials({ DISCORD_WEBHOOK_URL: `${base}/` })).toEqual({ webhookUrl: base });
+  });
+
+  it("rejects a path with a suffix after the token, such as the /slack or /github variants", () => {
+    expect(() => loadCredentials({ DISCORD_WEBHOOK_URL: `${base}/slack` })).toThrow(/DISCORD_WEBHOOK_URL/);
+    expect(() => loadCredentials({ DISCORD_WEBHOOK_URL: `${base}/anything/else` })).toThrow(/DISCORD_WEBHOOK_URL/);
+  });
+
+  it("keeps an existing query string such as thread_id", () => {
+    expect(loadCredentials({ DISCORD_WEBHOOK_URL: `${base}?thread_id=1` })).toEqual({ webhookUrl: `${base}?thread_id=1` });
+  });
+});

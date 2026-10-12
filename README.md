@@ -77,7 +77,9 @@ Edit `config.json`, commit and push. That is the whole deployment.
 ```
 
 Set `weekdaysOnly` to `false` to also post on Saturday and Sunday; nothing else needs to
-change. Any `sendTimes` between 08:00 and 18:00 Bucharest time work as is. The hourly cron
+change. Any `sendTimes` between 08:00 and 18:00 Bucharest time work as is. The cron fires
+at 7 minutes past each hour, so `11:00` posts at about 11:07 and `11:30` posts at about
+12:07; choose times on the hour for the earliest post. The hourly cron
 window (05:00-16:00 UTC) is tuned for Europe/Bucharest; if you need times outside that
 range, or move `timezone` far from UTC+2/+3, widen the cron hours in
 `.github/workflows/notify.yml`.
@@ -110,9 +112,10 @@ Locally, the webhook URL is read from a git-ignored `.env` file. The notice
 - **Discord responds 404 `Unknown Webhook`.** The webhook was deleted or regenerated.
   Create a new one and update the `DISCORD_WEBHOOK_URL` secret.
 - **Discord responds 401 or 403.** The webhook URL is wrong or was pasted incompletely.
-- **Messages stopped and the workflow says "disabled".** GitHub disables schedules after
-  60 days without activity; the keepalive step prevents this, but if it happens, open
-  *Actions → notify* and click **Enable workflow**.
+- **Messages stopped and the workflow says "disabled".** GitHub disables schedules in
+  public repositories after 60 days without activity. The keepalive step is insurance in
+  case the repo is or becomes public; if it happens anyway, open *Actions → notify* and
+  click **Enable workflow**.
 - **The message arrived late.** GitHub's scheduler can start cron jobs several minutes
   late. The slot window is 60 minutes, so the message still goes out with its real
   timestamp in the header.

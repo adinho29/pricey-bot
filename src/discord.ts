@@ -40,10 +40,10 @@ export function splitContent(text: string, limit = DISCORD_MAX_CONTENT): string[
   return chunks;
 }
 
-/** The last path segment of a webhook URL is its secret token. */
+/** The second path segment after /api/webhooks/ is the webhook's secret token. */
 function webhookToken(webhookUrl: string): string {
   try {
-    return new URL(webhookUrl).pathname.split("/").filter(Boolean).pop() ?? "";
+    return new URL(webhookUrl).pathname.match(/^\/api\/webhooks\/[^/]+\/([^/]+)/)?.[1] ?? "";
   } catch {
     return "";
   }
@@ -73,7 +73,11 @@ async function post(content: string, creds: Credentials, fetchFn: typeof fetch):
       body: JSON.stringify({ content }),
     });
   } catch (err) {
-    throw new SendError(`Discord webhook request failed: ${redact((err as Error).message, secret)}`);
+    // Node's fetch says only "fetch failed"; the real reason (ENOTFOUND, TLS, proxy) is in err.cause.
+    const message = redact((err as Error).message, secret);
+    const cause = (err as { cause?: { message?: unknown } }).cause?.message;
+    const detail = typeof cause === "string" && cause !== "" ? ` (${redact(cause, secret)})` : "";
+    throw new SendError(`Discord webhook request failed: ${message}${detail}`);
   }
   if (!res.ok) {
     const excerpt = redact(await bodyExcerpt(res), secret);

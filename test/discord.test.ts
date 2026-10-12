@@ -56,11 +56,30 @@ describe("sendToChannel", () => {
     expect(err2.message).not.toContain("abcDEFtoken_XYZ");
   });
 
-  it("wraps a network failure in SendError", async () => {
+  it("wraps a network failure in SendError and includes the underlying cause", async () => {
+    // Node's fetch rejects with "fetch failed" and puts the real reason in err.cause
     const fn = (async () => {
-      throw new Error("getaddrinfo ENOTFOUND discord.com");
+      throw Object.assign(new TypeError("fetch failed"), { cause: new Error("getaddrinfo ENOTFOUND discord.com") });
     }) as unknown as typeof fetch;
-    await expect(sendToChannel("hello", creds, fn)).rejects.toThrow(/ENOTFOUND/);
+    await expect(sendToChannel("hello", creds, fn)).rejects.toBeInstanceOf(SendError);
+    await expect(sendToChannel("hello", creds, fn)).rejects.toThrow(/fetch failed.*ENOTFOUND/);
+  });
+
+  it("redacts the token from the cause as well", async () => {
+    const fn = (async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause: new Error("proxy rejected /api/webhooks/123456789/abcDEFtoken_XYZ") });
+    }) as unknown as typeof fetch;
+    const err = await sendToChannel("hello", creds, fn).catch((e) => e as Error);
+    expect(err.message).not.toContain("abcDEFtoken_XYZ");
+  });
+
+  it("redacts the token even when the URL carries a suffix after it", async () => {
+    const odd = { webhookUrl: "https://discord.com/api/webhooks/123456789/abcDEFtoken_XYZ/extra" };
+    const fn = (async () => {
+      throw new TypeError("Failed to parse URL from discord.com/api/webhooks/123456789/abcDEFtoken_XYZ/extra");
+    }) as unknown as typeof fetch;
+    const err = await sendToChannel("hello", odd, fn).catch((e) => e as Error);
+    expect(err.message).not.toContain("abcDEFtoken_XYZ");
   });
 
   it("splits content over the Discord limit into several posts, in order, and returns the last id", async () => {

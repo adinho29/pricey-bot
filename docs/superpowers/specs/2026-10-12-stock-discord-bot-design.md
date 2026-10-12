@@ -104,8 +104,10 @@ strings; `priceDecimals` is an integer 0-6. `priceDecimals` and `title` are opti
 default to `2` and `"ETF prices"`.
 
 Secret (never in the repo): `DISCORD_WEBHOOK_URL`. It must be an `https:` URL on
-`discord.com` or `discordapp.com` (or their `ptb.`/`canary.` hosts) with path
-`/api/webhooks/<id>/<token>`; anything else is a `ConfigError` naming the variable. The
+`discord.com` or `discordapp.com` (or their `ptb.`/`canary.` hosts) with path exactly
+`/api/webhooks/<id>/<token>`; a trailing slash is stripped, a query string such as
+`thread_id` is kept, and anything else (including the `/slack` and `/github` variants) is
+a `ConfigError` naming the variable. The
 last path segment is the webhook's secret token and must never appear in logs.
 Locally the secret comes from a git-ignored `.env` loaded with Node's
 `--env-file-if-exists=.env`; on GitHub it is a repository secret mapped to the env var.
@@ -181,7 +183,8 @@ Content-Type: application/json
   boundaries into chunks of at most 2000 characters and posts them in order; a single
   line longer than the limit is hard-split. It resolves with the last message id.
 - Non-2xx or network error throws `SendError` with the status and a 300-character body
-  excerpt. The webhook token is replaced by `[redacted]` in every error message, because
+  excerpt; for network errors the message includes `err.cause` (e.g. `ENOTFOUND`), since
+  Node's fetch itself only says "fetch failed". The webhook token is replaced by `[redacted]` in every error message, because
   Node's fetch includes the URL in some error texts.
 - No retry on send (a retry could double-post). Discord's rate limits are irrelevant at
   two posts per day.
@@ -210,8 +213,8 @@ checkout; setup-node 22 with npm cache; `npm ci`; `npm run build`; `node dist/ma
 plus `--force` when the input is true, with `DISCORD_WEBHOOK_URL` mapped from secrets; a
 final keepalive step with `if: always()` that runs
 `gh api -X PUT repos/<owner>/<repo>/actions/workflows/notify.yml/enable` with the job's
-`GITHUB_TOKEN`, so GitHub does not disable the schedule after 60 days without repository
-activity. Scheduled workflows run only on the default branch (`main`).
+`GITHUB_TOKEN`. GitHub disables schedules in public repositories after 60 days without
+repository activity; the step is insurance in case the repo is or becomes public. Scheduled workflows run only on the default branch (`main`).
 
 `ci.yml`: on push to `main` and on pull requests: `npm ci`, `npm test`, `npm run build`.
 

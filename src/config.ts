@@ -21,7 +21,7 @@ export class ConfigError extends Error {
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DISCORD_HOSTS = new Set(["discord.com", "discordapp.com", "ptb.discord.com", "canary.discord.com"]);
-const WEBHOOK_PATH_RE = /^\/api\/webhooks\/[^/]+\/[^/]+/;
+const WEBHOOK_PATH_RE = /^\/api\/webhooks\/[^/]+\/[^/]+\/?$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -109,14 +109,18 @@ function requireDiscordWebhookUrl(env: NodeJS.ProcessEnv, name: string): string 
   } catch {
     url = undefined;
   }
-  const valid =
-    url !== undefined && url.protocol === "https:" && DISCORD_HOSTS.has(url.hostname) && WEBHOOK_PATH_RE.test(url.pathname);
-  if (!valid) {
+  if (
+    url === undefined ||
+    url.protocol !== "https:" ||
+    !DISCORD_HOSTS.has(url.hostname) ||
+    !WEBHOOK_PATH_RE.test(url.pathname)
+  ) {
     throw new ConfigError(
       `${name} must be an https Discord webhook URL such as https://discord.com/api/webhooks/<id>/<token>`,
     );
   }
-  return value;
+  // Canonical form: no trailing slash (Discord answers 404 to it), query string kept (e.g. thread_id).
+  return `${url.origin}${url.pathname.replace(/\/$/, "")}${url.search}`;
 }
 
 export function loadCredentials(env: NodeJS.ProcessEnv = process.env): Credentials {
