@@ -2,11 +2,11 @@ name: notify
 
 on:
   schedule:
-    # Hourly at :07, every day, 05:00-16:00 UTC.
+    # Hourly at :07, every day, 05:00-18:00 UTC.
     # The script decides whether the current Bucharest time matches a configured
     # send time and whether weekends are allowed (see config.json), so neither
     # daylight-saving changes nor weekdaysOnly need edits here.
-    - cron: "7 5-16 * * *"
+    - cron: "7 5-18 * * *"
   workflow_dispatch:
     inputs:
       force:

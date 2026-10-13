@@ -115,8 +115,8 @@ Locally the secret comes from a git-ignored `.env` loaded with Node's
 
 ## 6. Scheduling
 
-- Workflow cron: `7 5-16 * * *` (UTC). Runs hourly at minute 7, every day, which covers
-  08:07–19:07 Bucharest in summer (UTC+3) and 07:07–18:07 in winter (UTC+2). Minute 7
+- Workflow cron: `7 5-18 * * *` (UTC). Runs hourly at minute 7, every day, which covers
+  08:07–21:07 Bucharest in summer (UTC+3) and 07:07–20:07 in winter (UTC+2). Minute 7
   avoids top-of-hour congestion on GitHub's scheduler. The cron does not filter weekdays,
   so `weekdaysOnly` in `config.json` is the only weekend switch.
 - `shouldSend(now, cfg)`:
@@ -131,7 +131,7 @@ Locally the secret comes from a git-ignored `.env` loaded with Node's
   for the day; this is accepted (see Non-goals).
 - `--force` bypasses `shouldSend`. `--dry-run` implies `--force`. The workflow's manual
   trigger exposes `force` as a boolean input.
-- Any `sendTimes` between 08:00 and 18:00 Bucharest work without touching the workflow;
+- Any `sendTimes` between 08:00 and 20:00 Bucharest work without touching the workflow;
   for other times, or a timezone far from UTC+2/+3, widen the cron hours.
 
 ## 7. Quote fetching

@@ -16,7 +16,7 @@ delayed or stale price is visible (European exchanges are ~15 minutes delayed on
 
 ## How it works
 
-1. A GitHub Actions cron runs the script hourly, every day (05:00-16:00 UTC).
+1. A GitHub Actions cron runs the script hourly, every day (05:00-18:00 UTC).
 2. The script converts the current time to your timezone (`config.json`), skips weekends
    when `weekdaysOnly` is true, and sends only when it is within 60 minutes after one of
    your `sendTimes`. Everything else is a no-op, so daylight-saving changes need no edits.
@@ -77,10 +77,10 @@ Edit `config.json`, commit and push. That is the whole deployment.
 ```
 
 Set `weekdaysOnly` to `false` to also post on Saturday and Sunday; nothing else needs to
-change. Any `sendTimes` between 08:00 and 18:00 Bucharest time work as is. The cron fires
+change. Any `sendTimes` between 08:00 and 20:00 Bucharest time work as is. The cron fires
 at 7 minutes past each hour, so `11:00` posts at about 11:07 and `11:30` posts at about
 12:07; choose times on the hour for the earliest post. The hourly cron
-window (05:00-16:00 UTC) is tuned for Europe/Bucharest; if you need times outside that
+window (05:00-18:00 UTC) is tuned for Europe/Bucharest; if you need times outside that
 range, or move `timezone` far from UTC+2/+3, widen the cron hours in
 `.github/workflows/notify.yml`.
 
@@ -125,7 +125,7 @@ Locally, the webhook URL is read from a git-ignored `.env` file. The notice
 ## Cost
 
 Everything is free. The private-repo allowance for GitHub Actions is 2,000 minutes per
-month; this workflow uses roughly 12 one-minute runs per day, about 360 minutes per
+month; this workflow uses roughly 14 one-minute runs per day, about 420 minutes per
 month. Yahoo is called twice a day. Discord webhooks have no quota that matters here.
 
 ## Project layout
