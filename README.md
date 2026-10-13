@@ -90,7 +90,9 @@ The scheduler needs permission to start the workflow, nothing else.
 ### 5. Create the cron-job.org jobs
 
 Sign up at https://cron-job.org (free). Create one job per distinct minute of the hour;
-with the default times that is two jobs.
+with the default times that is two jobs. In the job's *Schedule* section you can either
+tick hours and minutes or switch to *Crontab* mode and paste `0 11,15 * * *` for the
+first job and `30 19 * * *` for the second (minute, hour, day, month, weekday).
 
 Job "pricey-bot 11:00 and 15:00":
 
@@ -99,14 +101,15 @@ Job "pricey-bot 11:00 and 15:00":
 | URL | `https://api.github.com/repos/adinho29/pricey-bot/actions/workflows/notify.yml/dispatches` |
 | Schedule | *Custom*. Timezone `Europe/Bucharest`. Days: every day. Hours: `11` and `15`. Minutes: `0`. |
 | Advanced → Request method | `POST` |
-| Advanced → Headers | `Authorization: Bearer <your token>` <br> `Accept: application/vnd.github+json` <br> `X-GitHub-Api-Version: 2022-11-28` <br> `Content-Type: application/json` |
+| Advanced → Headers | `Authorization: Bearer <your token>` <br> `Accept: application/vnd.github+json` <br> `X-GitHub-Api-Version: 2026-03-10` <br> `Content-Type: application/json` |
 | Advanced → Request body | `{"ref":"main"}` |
 
 Job "pricey-bot 19:30": identical, except Hours `19` and Minutes `30`.
 
-GitHub answers `204 No Content` on success, which cron-job.org shows as a green
-execution. Turn on failure notifications in your cron-job.org account settings so an
-expired token or a GitHub outage reaches your inbox.
+GitHub answers `200 OK` with the new run's details on success (`204 No Content` with
+the older API version `2022-11-28`, which GitHub removes in March 2028). cron-job.org
+shows either as a green execution. Turn on failure notifications in your cron-job.org
+account settings so an expired token or a GitHub outage reaches your inbox.
 
 To test the chain, use the job's test or "run now" button: a run with event
 `workflow_dispatch` appears under *Actions* within a minute. Outside a send window it

@@ -284,7 +284,7 @@ run with `force=true` posts to the channel.
 5. On cron-job.org create one job per distinct minute-of-hour (default: 11:00+15:00 and
    19:30), timezone Europe/Bucharest, every day, POST to the dispatch URL with headers
    `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
-   `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`, body
+   `X-GitHub-Api-Version: 2026-03-10`, `Content-Type: application/json`, body
    `{"ref":"main"}`. Enable failure notifications. Use the job's test run to confirm a
    `workflow_dispatch` run appears under Actions.
 
