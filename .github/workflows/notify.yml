@@ -6,7 +6,7 @@ on:
     # The script decides whether the current Bucharest time matches a configured
     # send time and whether weekends are allowed (see config.json), so neither
     # daylight-saving changes nor weekdaysOnly need edits here.
-    - cron: "7 5-18 * * *"
+    - cron: "*/20 5-18 * * *"
   workflow_dispatch:
     inputs:
       force:
