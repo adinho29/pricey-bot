@@ -3,13 +3,11 @@ import { readFileSync } from "node:fs";
 
 // Contracts between files that no unit can see on its own.
 describe("project contracts", () => {
-  it("the notify cron runs every day so that config.json weekdaysOnly is the only weekend switch", () => {
+  it("the notify workflow is dispatch-only: no schedule trigger, so an external scheduler cannot be doubled by GitHub's cron", () => {
     const yml = readFileSync(".github/workflows/notify.yml", "utf8");
-    const match = yml.match(/cron:\s*"([^"]+)"/);
-    expect(match, "notify.yml must declare a quoted cron expression").not.toBeNull();
-    const fields = match![1].trim().split(/\s+/);
-    expect(fields).toHaveLength(5);
-    expect(fields[4], "day-of-week field must be * (the script skips weekends itself)").toBe("*");
+    expect(yml).toMatch(/^\s*workflow_dispatch:/m);
+    expect(yml).not.toMatch(/^\s*schedule:/m);
+    expect(yml).not.toMatch(/^\s*- cron:/m);
   });
 
   it("the Node engine floor covers --env-file-if-exists, which every npm script uses", () => {

@@ -23,9 +23,9 @@ one line per ticker, in the form `TICKER - PRICE CUR - DD.MM.YYYY HH:mm`.
 |---|---|---|
 | Notification channel | Discord incoming webhook | Official, free, no bot account or OAuth: one HTTPS POST to a URL bound to a channel. Native group chat. Alternatives considered: Telegram Bot API (equally good, needs a bot token and chat-id discovery), ntfy.sh push (no chat thread), email (not a chat). WhatsApp was rejected: every free route depends on an unofficial WhatsApp Web session, and the official API cannot post into groups. |
 | Price data | Yahoo Finance via `yahoo-finance2` (Node), raw chart endpoint as fallback | Only free source covering Xetra ETFs (and US, London, Amsterdam, Bucharest) with intraday prices and currency, batched in one call. Alpha Vantage is 25 req/day and end-of-day only on free. |
-| Runtime | GitHub Actions scheduled workflow | Free, deploy by `git push`, secrets built in, per-run logs, failure emails. |
+| Runtime | GitHub Actions workflow, started by cron-job.org through the workflow-dispatch API | Free, deploy by `git push`, secrets built in, per-run logs, failure emails. GitHub's own `schedule` trigger never dispatched a run for this repository (see §6), a widely reported 2026 problem; cron-job.org is a free scheduler with timezone support. |
 | Stack | Node 22, TypeScript, Vitest | `yahoo-finance2` is Node-only; Node 22 is installed locally. No frameworks. |
-| Schedule model | Hourly cron in a daytime UTC window, every day; the script decides using local time and `weekdaysOnly` | GitHub cron is UTC with no DST support; this keeps `config.json` the single source of truth. |
+| Schedule model | cron-job.org wakes the workflow at each send time in Europe/Bucharest, every day; the script still enforces `sendTimes`, the 60-minute window and `weekdaysOnly` | The script's check is the safety net against a misfiring, duplicated or delayed trigger; `config.json` stays authoritative for weekends and for what may be posted, cron-job.org holds the wake-up times. |
 | Message granularity | One message per run containing all tickers | One notification per slot, easy to scan. |
 
 ## 3. Non-goals
@@ -115,24 +115,31 @@ Locally the secret comes from a git-ignored `.env` loaded with Node's
 
 ## 6. Scheduling
 
-- Workflow cron: `7 5-18 * * *` (UTC). Runs hourly at minute 7, every day, which covers
-  08:07–21:07 Bucharest in summer (UTC+3) and 07:07–20:07 in winter (UTC+2). Minute 7
-  avoids top-of-hour congestion on GitHub's scheduler. The cron does not filter weekdays,
-  so `weekdaysOnly` in `config.json` is the only weekend switch.
-- `shouldSend(now, cfg)`:
+- Trigger: cron-job.org (free plan) sends
+  `POST https://api.github.com/repos/<owner>/<repo>/actions/workflows/notify.yml/dispatches`
+  with body `{"ref":"main"}` at each configured send time in Europe/Bucharest (default
+  jobs: 11:00 and 15:00; 19:30), every day, authenticated with a fine-grained GitHub token
+  limited to this repository with Actions read/write.
+- The workflow has no `schedule:` trigger. On 2026-10-13 GitHub's scheduler dispatched
+  zero runs for this repository across a whole morning, private and public, with hourly
+  and every-20-minutes cron lines and two cron-line commits, while `workflow_dispatch`
+  worked every time. GitHub Community threads #185355, #200282, #202602 and #203822
+  report the same in 2026 with no official fix. A `schedule:` trigger that woke up later
+  would post a second time inside a slot, so it is removed rather than left as a backup.
+- `shouldSend(now, cfg)` runs unchanged on every dispatched run:
   1. Convert `now` to local wall-clock in `cfg.timezone` via `Intl.DateTimeFormat`.
   2. If `weekdaysOnly` and local weekday is Saturday or Sunday -> `{send:false, reason:"weekend"}`.
   3. For each slot in `sendTimes`: send if `slotMinutes <= nowMinutes < slotMinutes + 60`
      (minutes since local midnight; windows do not wrap past midnight).
      -> `{send:true, reason:"slot 11:00"}`.
   4. Otherwise `{send:false, reason:"10:07 is not within 60 min after any send time"}`.
-- With hourly runs, each slot triggers exactly one run per day as long as GitHub's start
-  delay stays under 53 minutes. If a run is delayed past the window, that slot is skipped
-  for the day; this is accepted (see Non-goals).
+- The script's check is the safety net: a trigger that fires at the wrong time, twice, or
+  on a weekend produces a "skipped" run, never a wrong post. A trigger delayed by more
+  than 60 minutes skips that slot for the day; accepted.
+- Changing send times means editing `sendTimes` in `config.json` and the cron-job.org
+  schedule to match. `weekdaysOnly` lives only in the config.
 - `--force` bypasses `shouldSend`. `--dry-run` implies `--force`. The workflow's manual
-  trigger exposes `force` as a boolean input.
-- Any `sendTimes` between 08:00 and 20:00 Bucharest work without touching the workflow;
-  for other times, or a timezone far from UTC+2/+3, widen the cron hours.
+  trigger exposes `force` as a boolean input; cron-job.org passes no inputs.
 
 ## 7. Quote fetching
 
@@ -207,14 +214,12 @@ ISO timestamps.
 
 ## 11. GitHub Actions workflows
 
-`notify.yml`: `schedule` with the cron above; `workflow_dispatch` with boolean input
-`force`; `permissions: contents: read, actions: write`; `concurrency: notify`. Steps:
-checkout; setup-node 22 with npm cache; `npm ci`; `npm run build`; `node dist/main.js`
-plus `--force` when the input is true, with `DISCORD_WEBHOOK_URL` mapped from secrets; a
-final keepalive step with `if: always()` that runs
-`gh api -X PUT repos/<owner>/<repo>/actions/workflows/notify.yml/enable` with the job's
-`GITHUB_TOKEN`. GitHub disables schedules in public repositories after 60 days without
-repository activity; the step is insurance in case the repo is or becomes public. Scheduled workflows run only on the default branch (`main`).
+`notify.yml`: `workflow_dispatch` only, with boolean input `force`; `permissions:
+contents: read`; `concurrency: notify`. Steps: checkout; setup-node 22 with npm cache;
+`npm ci`; `npm run build`; `node dist/main.js` plus `--force` when the input is true,
+with `DISCORD_WEBHOOK_URL` mapped from secrets. Dispatches from cron-job.org arrive
+through the REST API with no inputs. No `schedule:` trigger (see §6) and therefore no
+keepalive step: GitHub's 60-day auto-disable applies to scheduled workflows only.
 
 `ci.yml`: on push to `main` and on pull requests: `npm ci`, `npm test`, `npm run build`.
 
@@ -268,15 +273,20 @@ run with `force=true` posts to the channel.
 
 ## 14. One-time setup (performed by the user, documented in README)
 
-1. In Discord, create a server (or use an existing one) and the channel that should
-   receive the prices. Invite the people who should see them.
-2. Channel -> Edit Channel -> Integrations -> Webhooks -> New Webhook. Name it, pick the
-   channel, Copy Webhook URL.
-3. Locally: copy `.env.example` to `.env`, paste the URL, `npm install`, `npm run build`,
+1. In Discord, create or pick the channel. Channel -> Edit Channel -> Integrations ->
+   Webhooks -> New Webhook -> Copy Webhook URL.
+2. Locally: copy `.env.example` to `.env`, paste the URL, `npm install`, `npm run build`,
    `npm run dry-run`, then `npm run send -- --force` once to see it in the channel.
-4. Create a private GitHub repo, push `main`, add the secret `DISCORD_WEBHOOK_URL` under
-   Settings -> Secrets and variables -> Actions.
-5. Run the workflow manually once with `force` checked and confirm the post arrives.
+3. Create a GitHub repo (visibility irrelevant), push `main`, add the secret
+   `DISCORD_WEBHOOK_URL`, run the workflow manually once with `force`.
+4. Create a fine-grained GitHub token: only this repository, permission Actions: read and
+   write, longest expiration offered.
+5. On cron-job.org create one job per distinct minute-of-hour (default: 11:00+15:00 and
+   19:30), timezone Europe/Bucharest, every day, POST to the dispatch URL with headers
+   `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+   `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`, body
+   `{"ref":"main"}`. Enable failure notifications. Use the job's test run to confirm a
+   `workflow_dispatch` run appears under Actions.
 
 ## 15. Risks and mitigations
 
@@ -286,7 +296,9 @@ run with `force=true` posts to the channel.
 | Webhook URL leaks (anyone holding it can post to the channel) | Stored only as a GitHub secret and a git-ignored `.env`; redacted from error output; regenerate in Discord if exposed. |
 | Yahoo breaks the library (historically 1-3 times/year) | Retry, then raw chart endpoint fallback; `n/a` lines keep the rest flowing; failing run emails you. |
 | Yahoo rate-limits GitHub's datacenter IPs | Two batched calls per day is far below observed thresholds; fallback uses a browser UA. |
-| GitHub schedule drift or auto-disable | Minute-7 cron, 60-minute slot window, keepalive step on every run; failures surface by email. |
+| cron-job.org fails to call GitHub (outage, expired or revoked token) | cron-job.org failure notifications; HTTP 401 means a new token is needed in both jobs. GitHub's own failure email does not cover this case. |
+| GitHub queues the dispatched run late | 60-minute slot window; the header shows the real send time. |
+| Send times drift apart between `config.json` and cron-job.org | A mismatch only ever yields a "skipped" run, never a wrong post; README states that both must be edited together. |
 | Message grows past 2000 characters with many tickers | Automatic line-boundary splitting into several posts. |
 
 ## 16. Research summary (2026-10-12)
@@ -295,6 +307,11 @@ Notification channels usable from a stateless cron, free: Discord webhook (chose
 Telegram Bot API, ntfy.sh topics, Slack incoming webhook, email via Gmail app password or
 Brevo free tier. Signal needs a persistent registered device; WhatsApp has no official
 group posting and its free bridges rely on unofficial sessions held by third parties.
+
+GitHub Actions `schedule` reliability: zero dispatched runs for this repo on 2026-10-13 under
+every variant tried; many 2026 community reports of the same for new or private repos, no
+official resolution. External trigger via `workflow_dispatch` chosen; alternatives were a
+Cloudflare Worker cron, Windows Task Scheduler on the user's PC, or waiting.
 
 Price sources: Yahoo unofficial (no key, batched, EU + BVB, ~15 min delay),
 Alpha Vantage (25/day, EOD on free), Finnhub / Twelve Data (US only on free),
@@ -305,4 +322,9 @@ Key sources:
 - https://github.com/gadicc/yahoo-finance2/releases
 - https://www.alphavantage.co/support/
 - https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
-- https://docs.github.com/en/rest/actions/workflows#enable-a-workflow
+- https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event
+- https://github.com/orgs/community/discussions/185355
+- https://github.com/orgs/community/discussions/202602
+- https://github.com/orgs/community/discussions/203822
+- https://github.com/orgs/community/discussions/200282
+- https://docs.cron-job.org/

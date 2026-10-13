@@ -1,22 +1,21 @@
 name: notify
 
+# This workflow is started from outside GitHub: cron-job.org calls the
+# workflow-dispatch API at each configured send time (see README, "How it works").
+# There is deliberately no `schedule:` trigger. GitHub's own scheduler never
+# dispatched a single run for this repository, and if it woke up later it would
+# post a second time inside the same slot.
+
 on:
-  schedule:
-    # Hourly at :07, every day, 05:00-18:00 UTC.
-    # The script decides whether the current Bucharest time matches a configured
-    # send time and whether weekends are allowed (see config.json), so neither
-    # daylight-saving changes nor weekdaysOnly need edits here.
-    - cron: "7 5-18 * * *"
   workflow_dispatch:
     inputs:
       force:
-        description: "Send now, ignoring the schedule"
+        description: "Send now, ignoring the configured send times"
         type: boolean
         default: false
 
 permissions:
   contents: read
-  actions: write # required by the keepalive step
 
 concurrency:
   group: notify
@@ -42,12 +41,3 @@ jobs:
         run: node dist/main.js ${{ inputs.force == true && '--force' || '' }}
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-      - name: Keep the schedule enabled
-        # GitHub disables scheduled workflows in public repositories after 60 days
-        # without repository activity. Re-enabling on every run resets that timer;
-        # harmless insurance for a private repo.
-        if: always()
-        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/notify.yml/enable"
-        env:
-          GH_TOKEN: ${{ github.token }}
